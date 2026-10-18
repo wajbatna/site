@@ -3,8 +3,9 @@ import { db } from "./firebase.js";
 import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { getLang } from "./i18n.js";
 
-let cats = [], items = [], sig = "", ui = null; // ui = {cat, item, size, qty, ex:Set}
+let cats = [], items = [], sig = "", ui = null; // ui = {cat, item, size, qty, ex:Map k→qty}
 const L = () => getLang() === "fr";
+const IMG = (n, px) => '<img src="img/icons/' + n + '.webp" alt="" width="' + px + '" height="' + px + '" style="width:' + px + 'px;height:' + px + 'px;object-fit:contain;display:inline-block;vertical-align:middle">';
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (n) => Math.round(n).toLocaleString(L() ? "fr-FR" : "ar-MA") + (L() ? " DH" : " درهم");
 const nm = (o) => (L() && o.nameFr ? o.nameFr : o.name);
@@ -43,7 +44,7 @@ function renderSection() {
     '#fastFoodSection .ff-tile{border:0;background:#fff;border-radius:22px;padding:0;overflow:hidden;box-shadow:0 4px 14px #0f172a1a;cursor:pointer;text-align:center;transition:transform .15s}' +
     '#fastFoodSection .ff-tile:active{transform:scale(.97)}#fastFoodSection .ff-tile img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#f5f5f4}' +
     '#fastFoodSection .ff-tile b{display:block;padding:9px 6px 11px;font-size:14px;font-weight:800;color:var(--primary)}</style>' +
-    '<h2 style="margin:0 0 4px;color:var(--primary);font-size:20px;font-weight:900">🍔 ' + t.title + '</h2><p style="margin:0 0 12px;color:var(--muted);font-size:13px">' + t.sub + "</p>" +
+    '<h2 style="margin:0 0 4px;color:var(--primary);font-size:20px;font-weight:900">' + IMG("dejeuner", 28) + " " + t.title + '</h2><p style="margin:0 0 12px;color:var(--muted);font-size:13px">' + t.sub + "</p>" +
     '<div class="ff-grid">' + list.map((c) => '<button type="button" class="ff-tile" data-ffcat="' + esc(c.id) + '">' + (c.image ? '<img src="' + esc(c.image) + '" alt="' + esc(nm(c)) + '" loading="lazy" decoding="async">' : '<div style="aspect-ratio:1/1;background:#f5f5f4"></div>') + "<b>" + esc(nm(c)) + "</b></button>").join("") + "</div>";
   s.querySelectorAll("[data-ffcat]").forEach((b) => (b.onclick = () => open(b.dataset.ffcat)));
 }
@@ -61,13 +62,13 @@ function modal() {
   return m;
 }
 function closeM() { ui = null; const m = document.getElementById("ffModal"); if (m) m.classList.remove("show"); }
-function open(catId) { ui = { cat: catId, item: null, size: 0, qty: 1, ex: new Set() }; modal().classList.add("show"); draw(); }
+function open(catId) { ui = { cat: catId, item: null, size: 0, qty: 1, ex: new Map() }; modal().classList.add("show"); draw(); }
 
 function draw() {
   if (!ui) return;
   const box = document.getElementById("ffBox"), t = T();
   const cat = cats.find((c) => c.id === ui.cat);
-  const head = (title, back) => '<div class="modal-head">' + (back ? '<button type="button" class="close" id="ffBack" aria-label="' + t.back + '">' + (L() ? "←" : "→") + "</button>" : "") + "<h3>" + esc(title) + '</h3><button type="button" class="close" id="ffX" aria-label="' + t.close + '">×</button></div>';
+  const head = (title, back) => '<div class="modal-head">' + (back ? '<button type="button" class="close" id="ffBack" aria-label="' + t.back + '">' + '<span style="display:inline-flex;transform:' + (L() ? "none" : "scaleX(-1)") + '">' + IMG("back", 26) + "</span></button>" : "") + "<h3>" + esc(title) + '</h3><button type="button" class="close" id="ffX" aria-label="' + t.close + '">' + IMG("close", 26) + "</button></div>";
   if (!ui.item) {
     const list = liveItems(ui.cat);
     box.innerHTML = head(cat ? nm(cat) : t.title, false) +
@@ -77,29 +78,30 @@ function draw() {
           (i.image ? '<img src="' + esc(i.image) + '" alt="" loading="lazy" style="display:block;width:100%;aspect-ratio:4/3;object-fit:cover">' : '<div style="aspect-ratio:4/3;background:#f5f5f4"></div>') +
           '<div style="padding:8px 6px 10px"><b style="display:block;font-size:14px;color:var(--text)">' + esc(nm(i)) + '</b><span style="font-size:13px;color:var(--primary-light);font-weight:800">' + t.from + " " + money(min) + "</span></div></button>";
       }).join("") + "</div>" : '<div class="empty">' + t.none + "</div>");
-    box.querySelectorAll("[data-ffi]").forEach((b) => (b.onclick = () => { ui.item = b.dataset.ffi; ui.size = 0; ui.qty = 1; ui.ex = new Set(); draw(); }));
+    box.querySelectorAll("[data-ffi]").forEach((b) => (b.onclick = () => { ui.item = b.dataset.ffi; ui.size = 0; ui.qty = 1; ui.ex = new Map(); draw(); }));
   } else {
     const it = items.find((i) => i.id === ui.item);
     if (!it) { ui.item = null; return draw(); }
     const sz = it.sizes[ui.size] || it.sizes[0];
     const exs = (cat && cat.extras) || [];
-    const exSum = [...ui.ex].reduce((a, k) => a + (exs[k] ? Number(exs[k].price) || 0 : 0), 0);
+    const exSum = [...ui.ex].reduce((a, [k, n]) => a + (exs[k] ? (Number(exs[k].price) || 0) * n : 0), 0);
     const unit = (Number(sz.price) || 0) + exSum;
     const desc = L() && it.descriptionFr ? it.descriptionFr : it.description;
     box.innerHTML = head(nm(it), true) +
       (it.image ? '<img src="' + esc(it.image) + '" alt="" style="display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:18px;margin-bottom:12px">' : "") +
       (desc ? '<p style="margin:0 0 14px;color:var(--muted);font-size:14px;line-height:1.6">' + esc(desc) + "</p>" : "") +
       '<h4 style="margin:0 0 8px;color:var(--primary)">' + t.pick + "</h4><div style=\"display:flex;flex-direction:column;gap:8px\">" +
-      it.sizes.map((s, k) => '<button type="button" data-ffs="' + k + '" style="display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:10px 14px;border-radius:14px;cursor:pointer;font:800 15px inherit;border:2px solid ' + (k === ui.size ? "var(--primary)" : "var(--border)") + ";background:" + (k === ui.size ? "#f0fdf4" : "#fff") + ';color:var(--text)"><span>' + (k === ui.size ? "● " : "○ ") + esc(sl(s)) + "</span><span>" + money(Number(s.price) || 0) + "</span></button>").join("") + "</div>" +
-      (exs.length ? '<h4 style="margin:16px 0 8px;color:var(--primary)">' + t.extras + '</h4><div style="display:flex;flex-direction:column;gap:8px">' + exs.map((e, k) => '<button type="button" data-ffe="' + k + '" style="display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:10px 14px;border-radius:14px;cursor:pointer;font:800 15px inherit;border:2px solid ' + (ui.ex.has(k) ? 'var(--primary)' : 'var(--border)') + ';background:' + (ui.ex.has(k) ? '#f0fdf4' : '#fff') + ';color:var(--text)"><span>' + (ui.ex.has(k) ? '☑ ' : '☐ ') + esc(sl(e)) + '</span><span>+ ' + money(Number(e.price) || 0) + '</span></button>').join('') + '</div>' : '') +
+      it.sizes.map((s, k) => '<button type="button" data-ffs="' + k + '" style="display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:10px 14px;border-radius:14px;cursor:pointer;font:800 15px inherit;border:2px solid ' + (k === ui.size ? "var(--primary)" : "var(--border)") + ";background:" + (k === ui.size ? "#f0fdf4" : "#fff") + ';color:var(--text)"><span style="display:inline-flex;align-items:center;gap:8px"><i style="width:18px;height:18px;border-radius:50%;border:2px solid var(--primary);display:inline-block;box-sizing:border-box;background:' + (k === ui.size ? "radial-gradient(var(--primary) 45%,transparent 50%)" : "#fff") + '"></i>' + esc(sl(s)) + "</span><span>" + money(Number(s.price) || 0) + "</span></button>").join("") + "</div>" +
+      (exs.length ? '<h4 style="margin:16px 0 8px;color:var(--primary)">' + t.extras + '</h4><div style="display:flex;flex-direction:column;gap:8px">' + exs.map((e, k) => { const n = ui.ex.get(k) || 0; return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:48px;padding:8px 14px;border-radius:14px;border:2px solid ' + (n ? 'var(--primary)' : 'var(--border)') + ';background:' + (n ? '#f0fdf4' : '#fff') + '"><span style="font-weight:800;font-size:15px">' + esc(sl(e)) + '<small style="display:block;color:var(--muted);font-weight:700">+ ' + money(Number(e.price) || 0) + '</small></span><div class="qty">' + (n ? '<button type="button" data-exm="' + k + '" aria-label="-">−</button><b>' + n + '</b>' : '') + '<button type="button" class="plus" data-exp="' + k + '" aria-label="+">+</button></div></div>'; }).join('') + '</div>' : '') +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 12px"><b>' + t.qty + '</b><div class="qty"><button type="button" id="ffMinus" aria-label="-">−</button><b>' + ui.qty + '</b><button type="button" class="plus" id="ffPlus" aria-label="+">+</button></div></div>' +
       '<button type="button" class="checkout" id="ffAdd" style="width:100%">' + t.add + " — " + money(unit * ui.qty) + "</button>";
-    box.querySelectorAll("[data-ffe]").forEach((b) => (b.onclick = () => { const k = Number(b.dataset.ffe); ui.ex.has(k) ? ui.ex.delete(k) : ui.ex.add(k); draw(); }));
+    box.querySelectorAll("[data-exp]").forEach((b) => (b.onclick = () => { const k = Number(b.dataset.exp), n = ui.ex.get(k) || 0; if (n < 10) ui.ex.set(k, n + 1); draw(); }));
+    box.querySelectorAll("[data-exm]").forEach((b) => (b.onclick = () => { const k = Number(b.dataset.exm), n = (ui.ex.get(k) || 0) - 1; n > 0 ? ui.ex.set(k, n) : ui.ex.delete(k); draw(); }));
     box.querySelectorAll("[data-ffs]").forEach((b) => (b.onclick = () => { ui.size = Number(b.dataset.ffs); draw(); }));
     box.querySelector("#ffMinus").onclick = () => { if (ui.qty > 1) { ui.qty--; draw(); } };
     box.querySelector("#ffPlus").onclick = () => { if (ui.qty < 20) { ui.qty++; draw(); } };
     box.querySelector("#ffAdd").onclick = () => {
-      const id = "ff:" + it.id + ":" + ui.size + ":" + [...ui.ex].sort().join(","), q = ui.qty;
+      const id = "ff:" + it.id + ":" + ui.size + ":" + [...ui.ex].sort((a, b) => a[0] - b[0]).map(([k, n]) => k + "." + n).join(","), q = ui.qty;
       closeM();
       window.add(id, q);
     };
@@ -116,9 +118,9 @@ window.ffCartItem = (id, qty) => {
   if (!it || it.enabled === false || !sz) return null;
   const c = cats.find((x) => x.id === it.catId);
   if (!c || c.enabled === false) return null;
-  const exs = (c.extras || []), picked = (exStr ? exStr.split(",") : []).map(Number).filter((n) => exs[n]);
-  const label = [sl(sz)].concat(picked.map((n) => "+ " + sl(exs[n]))).join(" ");
-  const price = (Number(sz.price) || 0) + picked.reduce((a, n) => a + (Number(exs[n].price) || 0), 0);
+  const exs = (c.extras || []), picked = (exStr ? exStr.split(",") : []).map((x) => x.split(".").map(Number)).filter(([n, q]) => exs[n] && q > 0);
+  const label = [sl(sz)].concat(picked.map(([n, q]) => "+ " + (q > 1 ? q + "× " : "") + sl(exs[n]))).join(" ");
+  const price = (Number(sz.price) || 0) + picked.reduce((a, [n, q]) => a + (Number(exs[n].price) || 0) * q, 0);
   return { id, ff: true, name: nm(it) + " — " + label, price, image: it.image || "", qty };
 };
 window.ffRender = () => { renderSection(); };

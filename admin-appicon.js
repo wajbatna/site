@@ -76,7 +76,7 @@ export async function renderAppIconTab(el) {
     return '<div class="user-order" style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;' + (on ? "outline:3px solid #f59e0b;" : "") + '">' +
       '<img src="' + esc(it.src) + '" alt="" style="width:84px;height:84px;border-radius:20px;object-fit:cover">' +
       "<b>" + esc(it.name) + "</b>" +
-      (on ? '<span style="color:#059669;font-weight:800">✔ مُفعّلة</span>'
+      (on ? '<span style="color:#059669;font-weight:800">مُفعّلة</span>'
         : '<button class="btn-outline-sm" data-use="' + esc(it.key) + '">تفعيل</button>') +
       (it.custom ? '<button class="btn-danger-sm" data-del="' + esc(it.id) + '">حذف</button>' : "") + "</div>";
   };

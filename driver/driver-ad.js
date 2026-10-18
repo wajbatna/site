@@ -26,8 +26,8 @@ async function load() {
     f.style.cssText = "display:block;border:0;width:" + w + "px;max-width:100%;height:" + h + "px";
     f.srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank"><style>html,body{margin:0;padding:0;overflow:hidden;background:transparent}</style></head><body>' + d.code + "</body></html>";
     const x = document.createElement("button");
-    x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "إغلاق");
-    x.style.cssText = "position:absolute;top:2px;left:2px;width:24px;height:24px;border:0;border-radius:50%;background:#0009;color:#fff;font-size:16px;line-height:1;cursor:pointer";
+    x.type = "button"; x.innerHTML = '<img src="../img/icons/close.webp" alt="" style="width:20px;height:20px;object-fit:contain;display:block;margin:auto">'; x.setAttribute("aria-label", "إغلاق");
+    x.style.cssText = "position:absolute;top:2px;left:2px;width:26px;height:26px;border:0;border-radius:50%;background:#fff;padding:0;cursor:pointer;box-shadow:0 1px 4px #0006";
     x.onclick = () => { closed = true; remove(); };
     wrap.append(f, x); box.appendChild(wrap); document.body.appendChild(box);
   } catch (e) { remove(); }
