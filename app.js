@@ -49,7 +49,7 @@ const PLANS_META = [
   { id: "monthly", days: 20, discount: 0.2 },
 ];
 const CAT_IDS = ["all", "breakfast", "lunch", "dinner", "fav"];
-const CAT_EMOJI = { all: "🍽", breakfast: ico("petit-dej"), lunch: ico("dejeuner"), dinner: ico("diner"), fav: "❤️" };
+const CAT_EMOJI = { all: ico("all"), breakfast: ico("petit-dej"), lunch: ico("dejeuner"), dinner: ico("diner"), fav: ico("heart") };
 
 /* ---------- المفضلة: الزبون كيختار وجبات ويحطها فالمفضلة (محفوظة فمتصفحو، تخدم حتى بلا حساب) ---------- */
 const FAV_KEY = "wajbati_favs";
